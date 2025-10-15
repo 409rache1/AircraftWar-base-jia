@@ -1,0 +1,115 @@
+@startuml
+' 工厂模式UML类图
+
+' 抽象产品
+abstract class AbstractAircraft {
+    + forward(): void
+    + shoot(): List<BaseBullet>
+    + decreaseHp(int): void
+    + crash(AbstractFlyingObject): boolean
+}
+
+abstract class AbstractProp {
+    + forward(): void
+    + effect(HeroAircraft): void
+    + crash(AbstractFlyingObject): boolean
+}
+
+' 具体产品
+class MobEnemy {
+    + forward(): void
+    + shoot(): List<BaseBullet>
+    + decreaseHp(int): void
+}
+
+class EliteEnemy {
+    + forward(): void
+    + shoot(): List<BaseBullet>
+    + decreaseHp(int): void
+    + dropProps(): List<AbstractProp>
+}
+
+class PropBlood {
+    + effect(HeroAircraft): void
+    + forward(): void
+}
+
+class PropBomb {
+    + effect(HeroAircraft): void
+    + forward(): void
+}
+
+class PropBullet {
+    + effect(HeroAircraft): void
+    + forward(): void
+}
+
+' 抽象创建者
+interface AircraftFactory {
+    + createAircraft(int, int, int, int, int): AbstractAircraft
+}
+
+interface PropFactory {
+    + createProp(int, int): AbstractProp
+}
+
+' 具体创建者
+class MobEnemyFactory {
+    + createAircraft(int, int, int, int, int): AbstractAircraft
+}
+
+class EliteEnemyFactory {
+    + createAircraft(int, int, int, int, int): AbstractAircraft
+}
+
+class BloodPropFactory {
+    + createProp(int, int): AbstractProp
+}
+
+class BombPropFactory {
+    + createProp(int, int): AbstractProp
+}
+
+class BulletPropFactory {
+    + createProp(int, int): AbstractProp
+}
+
+' 继承关系
+AbstractAircraft <|-- MobEnemy
+AbstractAircraft <|-- EliteEnemy
+
+AbstractProp <|-- PropBlood
+AbstractProp <|-- PropBomb
+AbstractProp <|-- PropBullet
+
+AircraftFactory <|.. MobEnemyFactory
+AircraftFactory <|.. EliteEnemyFactory
+
+PropFactory <|.. BloodPropFactory
+PropFactory <|.. BombPropFactory
+PropFactory <|.. BulletPropFactory
+
+' 创建关系
+MobEnemyFactory --> MobEnemy
+EliteEnemyFactory --> EliteEnemy
+BloodPropFactory --> PropBlood
+BombPropFactory --> PropBomb
+BulletPropFactory --> PropBullet
+
+note right of AbstractAircraft
+  产品
+end note
+
+note right of AbstractProp
+  产品
+end note
+
+note right of AircraftFactory
+  创建者
+end note
+
+note right of PropFactory
+  创建者
+end note
+
+@enduml

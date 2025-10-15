@@ -1,0 +1,33 @@
+@startuml
+' 英雄机单例模式UML类图
+
+class HeroAircraft {
+    - shootNum: int = 1
+    - power: int = 30
+    - direction: int = -1
+    - {static} instance: HeroAircraft
+
+    - HeroAircraft(int, int, int, int, int)
+    + {static} getInstance(int, int, int, int, int): HeroAircraft
+    + forward(): void
+    + shoot(): List<BaseBullet>
+    + dropProps(): List<AbstractProp>
+}
+
+note right of HeroAircraft::instance
+    静态单例实例
+    使用双重检查锁定
+end note
+
+note right of HeroAircraft::getInstance
+    if (instance == null) {
+        synchronized (HeroAircraft.class) {
+            if (instance == null) {
+                instance = new HeroAircraft(...);
+            }
+        }
+    }
+    return instance;
+end note
+
+@enduml
