@@ -1,0 +1,132 @@
+@startuml
+!theme plain
+
+title 飞机大战策略模式UML类图
+
+' 策略接口和实现类
+interface ShootStrategy {
+  + shoot(aircraft: AbstractAircraft) : List<BaseBullet>
+}
+
+class NoShootStrategy {
+  + shoot(aircraft: AbstractAircraft) : List<BaseBullet>
+}
+
+class StraightShootStrategy {
+  - bulletCount: int
+  - bulletSpeed: int
+  - bulletPower: int
+  - isHero: boolean
+  + shoot(aircraft: AbstractAircraft) : List<BaseBullet>
+}
+
+class ScatteredShootStrategy {
+  - bulletCount: int
+  - bulletSpeed: int
+  - bulletPower: int
+  - isHero: boolean
+  + shoot(aircraft: AbstractAircraft) : List<BaseBullet>
+}
+
+class CircularShootStrategy {
+  - bulletCount: int
+  - bulletSpeed: int
+  - bulletPower: int
+  - isHero: boolean
+  + shoot(aircraft: AbstractAircraft) : List<BaseBullet>
+}
+
+' 抽象飞机类
+abstract class AbstractAircraft {
+  # locationX: int
+  # locationY: int
+  # speedX: int
+  # speedY: int
+  # maxHp: int
+  # hp: int
+  # shootStrategy: ShootStrategy
+  + setShootStrategy(strategy: ShootStrategy)
+  + shoot() : List<BaseBullet>
+  + getLocationX() : int
+  + getLocationY() : int
+  + decreaseHp(decrease: int)
+  + increaseHp(increase: int)
+}
+
+' 具体飞机类
+class HeroAircraft {
+  - shootNum: int = 1
+  - power: int = 30
+  - direction: int = -1
+  - instance: HeroAircraft
+  + getInstance(locationX: int, locationY: int, speedX: int, speedY: int, hp: int) : HeroAircraft
+  + activateProp(propType: String)
+}
+
+class MobEnemy {
+  ' 普通敌机不发射子弹
+}
+
+class EliteEnemy {
+  - shootNum: int = 1
+  - power: int = 30
+  - direction: int = 1
+}
+
+class SuperEliteEnemy {
+  - shootNum: int = 3
+  - power: int = 30
+  - direction: int = 1
+}
+
+class BossEnemy {
+  - shootNum: int = 20
+  - power: int = 30
+  - direction: int = 1
+}
+
+' 子弹类
+class BaseBullet {
+  # x: int
+  # y: int
+  # speedX: int
+  # speedY: int
+  # power: int
+  + forward()
+  + getPower() : int
+}
+
+class HeroBullet {
+  ' 英雄机子弹
+}
+
+class EnemyBullet {
+  ' 敌机子弹
+}
+
+' 关系定义
+ShootStrategy <|.. NoShootStrategy
+ShootStrategy <|.. StraightShootStrategy
+ShootStrategy <|.. ScatteredShootStrategy
+ShootStrategy <|.. CircularShootStrategy
+
+AbstractAircraft o--> ShootStrategy
+AbstractAircraft <|-- HeroAircraft
+AbstractAircraft <|-- MobEnemy
+AbstractAircraft <|-- EliteEnemy
+AbstractAircraft <|-- SuperEliteEnemy
+AbstractAircraft <|-- BossEnemy
+
+BaseBullet <|-- HeroBullet
+BaseBullet <|-- EnemyBullet
+
+ShootStrategy ..> BaseBullet : creates
+
+' 策略分配说明
+note top of MobEnemy: 使用 NoShootStrategy
+note top of HeroAircraft: 默认: StraightShootStrategy\n道具: Scattered/Circular
+note top of EliteEnemy: 使用 StraightShootStrategy
+note top of SuperEliteEnemy: 使用 ScatteredShootStrategy
+note top of BossEnemy: 使用 CircularShootStrategy
+
+@enduml

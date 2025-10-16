@@ -1,0 +1,77 @@
+@startuml
+!theme plain
+
+title 数据访问对象模式在得分排行榜中的应用
+
+package "数据访问层" {
+  interface ScoreDao {
+    + getAllScores(): List<Score>
+    + addScore(score: Score): void
+    + deleteScore(playerName: String): void
+    + findScore(playerName: String): Score
+    + saveToFile(): void
+    + loadFromFile(): void
+  }
+
+  class ScoreDaoImpl {
+    - scores: List<Score>
+    - dataFile: File
+    + ScoreDaoImpl()
+    + getAllScores(): List<Score>
+    + addScore(score: Score): void
+    + deleteScore(playerName: String): void
+    + findScore(playerName: String): Score
+    + saveToFile(): void
+    + loadFromFile(): void
+  }
+
+  ScoreDao <|.. ScoreDaoImpl
+}
+
+package "数值对象" {
+  class Score {
+    - playerName: String
+    - score: int
+    - recordTime: Date
+    + Score(playerName: String, score: int, recordTime: Date)
+    + getPlayerName(): String
+    + getScore(): int
+    + getRecordTime(): Date
+    + setPlayerName(playerName: String): void
+    + setScore(score: int): void
+    + setRecordTime(recordTime: Date): void
+    + toString(): String
+    + compareTo(other: Score): int
+  }
+}
+
+package "业务层" {
+  class RankingManager {
+    - scoreDao: ScoreDao
+    + RankingManager()
+    + addGameRecord(playerName: String, score: int): void
+    + getRankingList(): List<Score>
+    + printRankingList(): void
+    + deleteRecord(playerName: String): void
+    + findRecord(playerName: String): Score
+  }
+
+  class Game {
+    - rankingManager: RankingManager
+    - score: int
+    - playerName: String
+    + gameOver(): void
+    + showRanking(): void
+  }
+}
+
+' 关系定义
+ScoreDaoImpl --> Score : 操作
+RankingManager --> ScoreDao : 使用
+Game --> RankingManager : 使用
+
+note right of ScoreDaoImpl : 数据存储在文件中\n实现数据持久化
+note right of RankingManager : 业务逻辑层\n处理排行榜相关操作
+note right of Game : 游戏主类\n在游戏结束时调用排行榜
+
+@enduml

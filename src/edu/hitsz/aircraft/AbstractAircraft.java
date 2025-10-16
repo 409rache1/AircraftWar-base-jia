@@ -1,24 +1,18 @@
+// AbstractAircraft.java (在原有基础上添加)
 package edu.hitsz.aircraft;
 
 import edu.hitsz.bullet.BaseBullet;
 import edu.hitsz.prop.AbstractProp;
 import edu.hitsz.basic.AbstractFlyingObject;
 import edu.hitsz.factory.PropFactory;
+import edu.hitsz.strategy.ShootStrategy;
 import java.util.List;
 
-/**
- * 所有种类飞机的抽象父类：
- * 敌机（BOSS, ELITE, MOB），英雄飞机
- *
- * @author hitsz
- */
 public abstract class AbstractAircraft extends AbstractFlyingObject {
-    /**
-     * 生命值
-     */
     protected int maxHp;
     protected int hp;
     protected PropFactory propFactory;
+    protected ShootStrategy shootStrategy; // 新增策略字段
 
     public AbstractAircraft(int locationX, int locationY, int speedX, int speedY, int hp) {
         super(locationX, locationY, speedX, speedY);
@@ -26,6 +20,23 @@ public abstract class AbstractAircraft extends AbstractFlyingObject {
         this.maxHp = hp;
     }
 
+    // 新增策略设置方法
+    public void setShootStrategy(ShootStrategy strategy) {
+        this.shootStrategy = strategy;
+    }
+
+    // 修改shoot方法使用策略模式
+    public List<BaseBullet> shoot() {
+        if (shootStrategy != null) {
+            return shootStrategy.shoot(this);
+        }
+        return directShoot();
+    }
+
+    // 原有的抽象方法改为受保护的方法
+    protected abstract List<BaseBullet> directShoot();
+
+    // 原有其他方法保持不变...
     public void decreaseHp(int decrease){
         hp -= decrease;
         if(hp <= 0){
@@ -41,8 +52,6 @@ public abstract class AbstractAircraft extends AbstractFlyingObject {
         }
     }
 
-
-
     public int getHp() {
         return hp;
     }
@@ -51,22 +60,5 @@ public abstract class AbstractAircraft extends AbstractFlyingObject {
         return maxHp;
     }
 
-    /**
-     * 飞机射击方法，可射击对象必须实现
-     * @return
-     *  可射击对象需实现，返回子弹
-     *  非可射击对象空实现，返回null
-     */
-    public abstract List<BaseBullet> shoot();
-
-    /**
-     * 飞机道具掉落方法，可掉落道具对象必须实现
-     * @return
-     *  可掉落道具对象需实现，返回道具
-     *  非可掉落道具对象空实现，返回null
-     */
     public abstract List<AbstractProp> dropProps();
-
 }
-
-

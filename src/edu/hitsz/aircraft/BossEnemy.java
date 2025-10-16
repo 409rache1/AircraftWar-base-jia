@@ -1,20 +1,15 @@
+// BossEnemy.java
 package edu.hitsz.aircraft;
 
 import edu.hitsz.bullet.BaseBullet;
 import edu.hitsz.bullet.EnemyBullet;
+import edu.hitsz.factory.*;
 import edu.hitsz.prop.AbstractProp;
-import edu.hitsz.factory.BloodPropFactory;
-import edu.hitsz.factory.BombPropFactory;
-import edu.hitsz.factory.BulletPropFactory;
-import edu.hitsz.factory.PropFactory;
-
+import edu.hitsz.strategy.CircularShootStrategy;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 
-/**
- * Boss敌机 - 实现环射弹道
- */
 public class BossEnemy extends AbstractAircraft {
     private int power = 30;
     private int shootNum = 20;
@@ -22,30 +17,27 @@ public class BossEnemy extends AbstractAircraft {
 
     public BossEnemy(int locationX, int locationY, int speedX, int speedY, int hp) {
         super(locationX, locationY, speedX, speedY, hp);
-        this.power = power;
+        this.shootStrategy = new CircularShootStrategy(shootNum, 5, power, false); // 添加false参数
     }
 
     @Override
     public void forward() {
         super.forward();
-        // Boss在屏幕上方左右移动
         if (locationX <= 0 || locationX >= 512) {
             speedX = -speedX;
         }
-
-        // 保持在屏幕上方区域
         if (locationY > 150) {
             locationY = 150;
         }
     }
 
     @Override
-    public List<BaseBullet> shoot() {
+    protected List<BaseBullet> directShoot() {
+        // 保留原有的射击逻辑作为后备
         List<BaseBullet> res = new LinkedList<>();
         int x = this.getLocationX();
         int y = this.getLocationY() + direction * 2;
 
-        // 环射弹道：20颗子弹呈环形
         for (int i = 0; i < shootNum; i++) {
             double angle = 2 * Math.PI * i / shootNum;
             int speedX = (int) (5 * Math.cos(angle));
@@ -57,15 +49,15 @@ public class BossEnemy extends AbstractAircraft {
         return res;
     }
 
+    @Override
     public List<AbstractProp> dropProps() {
         List<AbstractProp> props = new LinkedList<>();
         Random random = new Random();
 
-        // 随机掉落<=3个道具
+        // Boss敌机掉落0-3个道具
         int dropCount = random.nextInt(4);
-
         for (int i = 0; i < dropCount; i++) {
-            int propType = random.nextInt(3);
+            int propType = random.nextInt(4); // 0-3，现在有4种道具
             PropFactory factory;
 
             switch (propType) {
@@ -76,7 +68,10 @@ public class BossEnemy extends AbstractAircraft {
                     factory = new BombPropFactory();
                     break;
                 case 2:
-                    factory = new BulletPropFactory();
+                    factory = new BulletPropFactory(); // 普通火力道具
+                    break;
+                case 3:
+                    factory = new SuperBulletPropFactory(); // 超级火力道具
                     break;
                 default:
                     factory = new BloodPropFactory();

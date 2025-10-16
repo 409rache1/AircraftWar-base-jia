@@ -6,6 +6,7 @@ import edu.hitsz.basic.AbstractFlyingObject;
 import edu.hitsz.prop.*;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import edu.hitsz.factory.*;
+import edu.hitsz.dao.RankingManager;
 
 import javax.swing.*;
 import java.awt.*;
@@ -39,6 +40,9 @@ public class Game extends JPanel {
     private final List<BaseBullet> enemyBullets;
     private final List<AbstractProp> props;
 
+    private RankingManager rankingManager;
+    private String playerName = "Player";
+
     /**
      * 屏幕中出现的敌机最大数量
      */
@@ -66,6 +70,11 @@ public class Game extends JPanel {
     private boolean gameOverFlag = false;
 
     /**
+     * 是否已经处理过游戏结束逻辑
+     */
+    private boolean gameOverProcessed = false;
+
+    /**
      * 游戏结束显示的字体
      */
     private Font gameOverFont = new Font("SansSerif", Font.BOLD, 50);
@@ -73,15 +82,11 @@ public class Game extends JPanel {
 
     protected AircraftFactory factory;
 
-//   // 添加新的工厂
-//    private AircraftFactory superEliteEnemyFactory;
-//    private AircraftFactory bossEnemyFactory;
-
     // Boss相关属性
     private int bossScoreThreshold = 500;
     private boolean bossSpawned = false;
     private long lastBossTime = 0;
-    private static final long BOSS_COOLDOWN = 10000; // 30秒冷却
+    private static final long BOSS_COOLDOWN = 10000; // 10秒冷却
 
     public Game() {
         heroAircraft = HeroAircraft.getInstance(
@@ -90,15 +95,12 @@ public class Game extends JPanel {
                 0, 0, 1000
         );
 
-
+        // 初始化DAO组件
+        this.rankingManager = new RankingManager();
         enemyAircrafts = new LinkedList<>();
         heroBullets = new LinkedList<>();
         enemyBullets = new LinkedList<>();
         props = new LinkedList<>();
-
-//       // 初始化新工厂
-//        superEliteEnemyFactory = new SuperEliteEnemyFactory();
-//        bossEnemyFactory = new BossEnemyFactory();
 
         /**
          * Scheduled 线程池，用于定时任务调度
@@ -110,7 +112,6 @@ public class Game extends JPanel {
 
         //启动英雄机鼠标监听
         new HeroController(this, heroAircraft);
-
     }
 
     /**
@@ -127,7 +128,6 @@ public class Game extends JPanel {
             }
 
             time += timeInterval;
-
 
             // 周期性执行（控制频率）
             if (timeCountAndNewCycleJudge()) {
@@ -158,12 +158,14 @@ public class Game extends JPanel {
             repaint();
 
             // 游戏结束检查英雄机是否存活
-            if (heroAircraft.getHp() <= 0) {
+            if (heroAircraft.getHp() <= 0 && !gameOverProcessed) {
                 // 游戏结束
                 executorService.shutdown();
                 gameOverFlag = true;
-                System.out.println("Game Over!");
-                System.out.println("Final Score: " + score);
+                gameOverProcessed = true;
+
+                // 处理游戏结束逻辑
+                gameOverAction();
 
                 // 强制重绘界面以显示游戏结束信息
                 repaint();
@@ -176,8 +178,67 @@ public class Game extends JPanel {
          * 本次任务执行完成后，需要延迟设定的延迟时间，才会执行新的任务
          */
         executorService.scheduleWithFixedDelay(task, timeInterval, timeInterval, TimeUnit.MILLISECONDS);
-
     }
+
+    /**
+     * 游戏结束处理逻辑
+     */
+    private void gameOverAction() {
+        System.out.println("Game Over!");
+        System.out.println("Final Score: " + score);
+
+        // 保存得分记录到排行榜
+        rankingManager.addGameRecord(playerName, score);
+
+        // 打印排行榜
+        System.out.println("\n" + "=".repeat(50));
+        System.out.println("游戏结束！最终得分: " + score);
+        rankingManager.printRankingList();
+
+//        // 可选：弹出对话框显示游戏结束信息
+//        SwingUtilities.invokeLater(() -> {
+//            int option = JOptionPane.showConfirmDialog(this,
+//                    "游戏结束！\n最终得分: " + score + "\n\n是否查看排行榜？",
+//                    "游戏结束",
+//                    JOptionPane.YES_NO_OPTION);
+//
+//            if (option == JOptionPane.YES_OPTION) {
+//                // 可以在这里添加显示排行榜的对话框
+//                showRankingDialog();
+//            }
+//        });
+    }
+
+//    /**
+//     * 显示排行榜对话框（可选功能）
+//     */
+//    private void showRankingDialog() {
+//        List<edu.hitsz.dao.Score> ranking = rankingManager.getRankingList();
+//        StringBuilder rankingText = new StringBuilder();
+//        rankingText.append("得分排行榜\n");
+//        rankingText.append("=".repeat(30)).append("\n");
+//
+//        if (ranking.isEmpty()) {
+//            rankingText.append("暂无游戏记录\n");
+//        } else {
+//            rankingText.append("名次\t玩家名\t得分\t时间\n");
+//            rankingText.append("-".repeat(30)).append("\n");
+//
+//            for (int i = 0; i < Math.min(ranking.size(), 10); i++) { // 显示前10名
+//                edu.hitsz.dao.Score score = ranking.get(i);
+//                rankingText.append(String.format("第%d名\t%s\t%d\t%s%n",
+//                        i + 1,
+//                        score.getPlayerName(),
+//                        score.getScore(),
+//                        new java.text.SimpleDateFormat("MM-dd HH:mm").format(score.getRecordTime())));
+//            }
+//        }
+//
+//        JOptionPane.showMessageDialog(this,
+//                rankingText.toString(),
+//                "得分排行榜",
+//                JOptionPane.INFORMATION_MESSAGE);
+//    }
 
     //***********************
     //      Action 各部分
@@ -210,7 +271,7 @@ public class Game extends JPanel {
                         (int) (Math.random() * (Main.WINDOW_WIDTH - ImageManager.MOB_ENEMY_IMAGE.getWidth())),
                         (int) (Math.random() * Main.WINDOW_HEIGHT * 0.05),
                         (int) (Math.random() * 5 - 2),  // 随机水平速度 -2 到 2
-                        10, // speedY
+                        5, // speedY
                         90 // hp - 超级精英敌机生命值更高
                 ));
                 System.out.println("超级精英敌机生成！");
@@ -221,7 +282,7 @@ public class Game extends JPanel {
                         (int) (Math.random() * (Main.WINDOW_WIDTH - ImageManager.ELITE_ENEMY_IMAGE.getWidth())),
                         (int) (Math.random() * Main.WINDOW_HEIGHT * 0.05),
                         0,
-                        10,
+                        5,
                         60
                 ));
             } else {
@@ -231,7 +292,7 @@ public class Game extends JPanel {
                         (int) (Math.random() * (Main.WINDOW_WIDTH - ImageManager.MOB_ENEMY_IMAGE.getWidth())),
                         (int) (Math.random() * Main.WINDOW_HEIGHT * 0.05),
                         0,
-                        10,
+                        5,
                         30
                 ));
             }
@@ -360,7 +421,6 @@ public class Game extends JPanel {
                 prop.vanish();
             }
         }
-
     }
 
     /**
@@ -376,7 +436,6 @@ public class Game extends JPanel {
         enemyAircrafts.removeIf(AbstractFlyingObject::notValid);
         props.removeIf(AbstractFlyingObject::notValid);
     }
-
 
     //***********************
     //      Paint 各部分
@@ -418,7 +477,6 @@ public class Game extends JPanel {
         if (gameOverFlag) {
             paintGameOver(g);
         }
-
     }
 
     private void paintImageWithPositionRevised(Graphics g, List<? extends AbstractFlyingObject> objects) {
@@ -442,13 +500,6 @@ public class Game extends JPanel {
         g.drawString("SCORE:" + this.score, x, y);
         y = y + 20;
         g.drawString("LIFE:" + this.heroAircraft.getHp(), x, y);
-
-//        // 显示Boss信息
-//        if (bossSpawned) {
-//            y = y + 20;
-//            g.setColor(Color.RED);
-//            g.drawString("BOSS ACTIVE!", x, y);
-//        }
     }
 
     /**
@@ -485,7 +536,5 @@ public class Game extends JPanel {
 
         // 绘制最终分数
         g.drawString(scoreText, scoreX, scoreY);
-
     }
-
 }
