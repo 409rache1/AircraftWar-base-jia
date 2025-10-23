@@ -29,6 +29,12 @@ public class ImageManager {
     private static final Map<String, BufferedImage> CLASSNAME_IMAGE_MAP = new HashMap<>();
 
     public static BufferedImage BACKGROUND_IMAGE;
+    public static BufferedImage BACKGROUND_IMAGE_2;
+    public static BufferedImage BACKGROUND_IMAGE_3;
+
+    // 当前使用的背景图片（根据难度动态设置）
+    public static BufferedImage CURRENT_BACKGROUND_IMAGE;
+
     public static BufferedImage HERO_IMAGE;
     public static BufferedImage HERO_BULLET_IMAGE;
     public static BufferedImage ENEMY_BULLET_IMAGE;
@@ -47,6 +53,12 @@ public class ImageManager {
         try {
 
             BACKGROUND_IMAGE = ImageIO.read(new FileInputStream("src/images/bg.jpg"));
+            BACKGROUND_IMAGE_2 = ImageIO.read(new FileInputStream("src/images/bg2.jpg"));
+            BACKGROUND_IMAGE_3 = ImageIO.read(new FileInputStream("src/images/bg3.jpg"));
+
+            // 设置默认背景（简单难度）
+            CURRENT_BACKGROUND_IMAGE = BACKGROUND_IMAGE;
+
 
             HERO_IMAGE = ImageIO.read(new FileInputStream("src/images/hero.png"));
             MOB_ENEMY_IMAGE = ImageIO.read(new FileInputStream("src/images/mob.png"));
@@ -76,6 +88,31 @@ public class ImageManager {
             e.printStackTrace();
             System.exit(-1);
         }
+    }
+    /**
+     * 设置当前背景图片（根据难度）
+     */
+    public static void setBackgroundByDifficulty(int difficulty) {
+        switch (difficulty) {
+            case 0: // 简单难度
+                CURRENT_BACKGROUND_IMAGE = BACKGROUND_IMAGE;
+                break;
+            case 1: // 中等难度
+                CURRENT_BACKGROUND_IMAGE = BACKGROUND_IMAGE_2;
+                break;
+            case 2: // 困难难度
+                CURRENT_BACKGROUND_IMAGE = BACKGROUND_IMAGE_3;
+                break;
+            default:
+                CURRENT_BACKGROUND_IMAGE = BACKGROUND_IMAGE;
+        }
+    }
+
+    /**
+     * 获取当前背景图片
+     */
+    public static BufferedImage getCurrentBackground() {
+        return CURRENT_BACKGROUND_IMAGE;
     }
 
     public static BufferedImage get(String className){

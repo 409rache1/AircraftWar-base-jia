@@ -15,7 +15,7 @@ public class PropBullet extends AbstractProp {
         // 检查是否是英雄机
         if (aircraft instanceof HeroAircraft) {
             HeroAircraft hero = (HeroAircraft) aircraft;
-            // 调用英雄机的道具激活方法，切换为散射
+            // 调用英雄机的道具激活方法，切换为散射（多线程控制）
             hero.activateProp("PropBullet");
         }
     }

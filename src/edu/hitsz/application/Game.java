@@ -17,8 +17,6 @@ import java.util.concurrent.*;
 
 /**
  * 游戏主面板，游戏启动
- *
- * @author hitsz
  */
 public class Game extends JPanel {
 
@@ -88,24 +86,58 @@ public class Game extends JPanel {
     private long lastBossTime = 0;
     private static final long BOSS_COOLDOWN = 10000; // 10秒冷却
 
+    // 音效管理器
+    private SoundManager soundManager;
+    private boolean soundEnabled = true;
+
+    // 音效文件路径常量
+    private static final String SOUND_BGM = "src/videos/bgm.wav";
+    private static final String SOUND_BGM_BOSS = "src/videos/bgm_boss.wav";
+    private static final String SOUND_BULLET_HIT = "src/videos/bullet_hit.wav";
+    private static final String SOUND_BULLET_SHOOT = "src/videos/bullet.wav";
+    private static final String SOUND_BOMB_EXPLOSION = "src/videos/bomb_explosion.wav";
+    private static final String SOUND_GET_SUPPLY = "src/videos/get_supply.wav";
+    private static final String SOUND_GAME_OVER = "src/videos/game_over.wav";
+
+    // 游戏结束回调接口和难度
+    public interface GameOverCallback {
+        void onGameOver(int score, int difficulty);
+    }
+
+    private GameOverCallback gameOverCallback;
+    private int gameDifficulty = 0; // 默认简单难度
+
     public Game() {
+        // 获取英雄机单例并重置状态
         heroAircraft = HeroAircraft.getInstance(
                 Main.WINDOW_WIDTH / 2,
                 Main.WINDOW_HEIGHT - ImageManager.HERO_IMAGE.getHeight(),
                 0, 0, 1000
         );
 
-        // 初始化DAO组件
+        // 重置英雄机状态
+        if (heroAircraft != null) {
+            heroAircraft.reset();
+        } else {
+            System.err.println("错误：无法获取英雄机实例");
+        }
+
+        // 初始化统一的排行榜管理器
         this.rankingManager = new RankingManager();
+
+        // 初始化音效管理器
+        this.soundManager = SoundManager.getInstance();
+
         enemyAircrafts = new LinkedList<>();
         heroBullets = new LinkedList<>();
         enemyBullets = new LinkedList<>();
         props = new LinkedList<>();
 
+        // 重置其他游戏状态
+        resetGameState();
+
         /**
          * Scheduled 线程池，用于定时任务调度
-         * 关于alibaba code guide：可命名的 ThreadFactory 一般需要第三方包
-         * apache 第三方库： org.apache.commons.lang3.concurrent.BasicThreadFactory
          */
         this.executorService = new ScheduledThreadPoolExecutor(1,
                 new BasicThreadFactory.Builder().namingPattern("game-action-%d").daemon(true).build());
@@ -115,9 +147,80 @@ public class Game extends JPanel {
     }
 
     /**
+     * 重置游戏状态
+     */
+    private void resetGameState() {
+
+        // 重置游戏变量
+        backGroundTop = 0;
+        score = 0;
+        time = 0;
+        cycleTime = 0;
+        gameOverFlag = false;
+        gameOverProcessed = false;
+        bossSpawned = false;
+        lastBossTime = 0;
+
+        // 清空所有列表
+        enemyAircrafts.clear();
+        heroBullets.clear();
+        enemyBullets.clear();
+        props.clear();
+
+        // 重置敌机工厂等
+        factory = null;
+
+    }
+
+    /**
+     * 设置音效开关
+     */
+    public void setSoundEnabled(boolean enabled) {
+        this.soundEnabled = enabled;
+        soundManager.setSoundEnabled(enabled);
+
+        if (enabled) {
+            // 如果开启音效，播放背景音乐
+            soundManager.playBackgroundMusic(SOUND_BGM);
+        } else {
+            // 如果关闭音效，停止所有声音
+            soundManager.stopAllSounds();
+        }
+    }
+
+    /**
+     * 开始游戏时的音效初始化
+     */
+    public void startGameSounds() {
+        if (soundEnabled) {
+            soundManager.playBackgroundMusic(SOUND_BGM);
+        }
+    }
+
+    /**
      * 游戏启动入口，执行游戏逻辑
      */
     public void action() {
+        // 确保游戏状态已重置
+        if (gameOverFlag) {
+            System.out.println("警告：尝试启动已结束的游戏实例，强制重置");
+            resetGameState();
+        }
+
+        // 确保英雄机状态正常
+        if (heroAircraft.getHp() <= 0) {
+            System.out.println("警告：英雄机HP异常，强制重置");
+            heroAircraft.reset(
+                    Main.WINDOW_WIDTH / 2,
+                    Main.WINDOW_HEIGHT - ImageManager.HERO_IMAGE.getHeight(),
+                    1000
+            );
+        }
+
+        System.out.println("开始新游戏，英雄机HP: " + heroAircraft.getHp());
+
+        // 启动游戏音效
+        startGameSounds();
 
         // 定时任务：绘制、对象产生、碰撞判定、击毁及结束判定
         Runnable task = () -> {
@@ -159,6 +262,7 @@ public class Game extends JPanel {
 
             // 游戏结束检查英雄机是否存活
             if (heroAircraft.getHp() <= 0 && !gameOverProcessed) {
+
                 // 游戏结束
                 executorService.shutdown();
                 gameOverFlag = true;
@@ -169,6 +273,7 @@ public class Game extends JPanel {
 
                 // 强制重绘界面以显示游戏结束信息
                 repaint();
+
             }
 
         };
@@ -184,61 +289,54 @@ public class Game extends JPanel {
      * 游戏结束处理逻辑
      */
     private void gameOverAction() {
-        System.out.println("Game Over!");
-        System.out.println("Final Score: " + score);
+        // 清理英雄机的道具效果线程
+        if (heroAircraft != null) {
+            heroAircraft.cleanup();
+        }
 
-        // 保存得分记录到排行榜
-        rankingManager.addGameRecord(playerName, score);
+
+        // 播放游戏结束音效
+        if (soundEnabled) {
+            soundManager.playSound(SoundManager.GAME_OVER, SOUND_GAME_OVER);
+            soundManager.stopBackgroundMusic();
+            soundManager.stopBossMusic();
+        }
+
+        // 注意：这里先不保存记录，等玩家在ScoreBoard中输入名字后再保存
+        // 实际的保存将在 ScoreBoard 中完成
 
         // 打印排行榜
         System.out.println("\n" + "=".repeat(50));
         System.out.println("游戏结束！最终得分: " + score);
         rankingManager.printRankingList();
 
-//        // 可选：弹出对话框显示游戏结束信息
-//        SwingUtilities.invokeLater(() -> {
-//            int option = JOptionPane.showConfirmDialog(this,
-//                    "游戏结束！\n最终得分: " + score + "\n\n是否查看排行榜？",
-//                    "游戏结束",
-//                    JOptionPane.YES_NO_OPTION);
-//
-//            if (option == JOptionPane.YES_OPTION) {
-//                // 可以在这里添加显示排行榜的对话框
-//                showRankingDialog();
-//            }
-//        });
-    }
+        // 在EDT线程中执行界面切换
+        SwingUtilities.invokeLater(() -> {
 
-//    /**
-//     * 显示排行榜对话框（可选功能）
-//     */
-//    private void showRankingDialog() {
-//        List<edu.hitsz.dao.Score> ranking = rankingManager.getRankingList();
-//        StringBuilder rankingText = new StringBuilder();
-//        rankingText.append("得分排行榜\n");
-//        rankingText.append("=".repeat(30)).append("\n");
-//
-//        if (ranking.isEmpty()) {
-//            rankingText.append("暂无游戏记录\n");
-//        } else {
-//            rankingText.append("名次\t玩家名\t得分\t时间\n");
-//            rankingText.append("-".repeat(30)).append("\n");
-//
-//            for (int i = 0; i < Math.min(ranking.size(), 10); i++) { // 显示前10名
-//                edu.hitsz.dao.Score score = ranking.get(i);
-//                rankingText.append(String.format("第%d名\t%s\t%d\t%s%n",
-//                        i + 1,
-//                        score.getPlayerName(),
-//                        score.getScore(),
-//                        new java.text.SimpleDateFormat("MM-dd HH:mm").format(score.getRecordTime())));
-//            }
-//        }
-//
-//        JOptionPane.showMessageDialog(this,
-//                rankingText.toString(),
-//                "得分排行榜",
-//                JOptionPane.INFORMATION_MESSAGE);
-//    }
+            // 调用游戏结束回调，切换到排行榜界面
+            if (gameOverCallback != null) {
+                System.out.println("正在调用游戏结束回调，分数: " + score + ", 难度: " + gameDifficulty);
+                try {
+                    gameOverCallback.onGameOver(score, gameDifficulty);
+                } catch (Exception e) {
+                    e.printStackTrace();
+
+                    // 备用方案：直接显示游戏结束信息
+                    JOptionPane.showMessageDialog(this,
+                            "游戏结束！\n最终得分: " + score + "\n\n请返回主菜单查看排行榜",
+                            "游戏结束",
+                            JOptionPane.INFORMATION_MESSAGE);
+                }
+            } else {
+                // 如果没有设置回调，直接显示游戏结束信息
+                JOptionPane.showMessageDialog(this,
+                        "游戏结束！\n最终得分: " + score + "\n\n请返回主菜单查看排行榜",
+                        "游戏结束",
+                        JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+
+    }
 
     //***********************
     //      Action 各部分
@@ -274,7 +372,6 @@ public class Game extends JPanel {
                         5, // speedY
                         90 // hp - 超级精英敌机生命值更高
                 ));
-                System.out.println("超级精英敌机生成！");
             } else if (rand < 0.3) {
                 // 20% 概率生成精英敌机
                 factory = new EliteEnemyFactory();
@@ -303,17 +400,28 @@ public class Game extends JPanel {
         if (score >= bossScoreThreshold && !bossSpawned &&
                 (currentTime - lastBossTime) > BOSS_COOLDOWN) {
             factory = new BossEnemyFactory();
-            enemyAircrafts.add(factory.createAircraft(
-                    Main.WINDOW_WIDTH / 2, // 在屏幕中央出现
-                    100,                   // 在屏幕上方
-                    3,                     // 水平移动速度
-                    0,                     // 垂直速度为0（悬浮）
-                    150                   // Boss生命值
-            ));
+
+            // 在屏幕中央生成Boss敌机
+            int bossX = Main.WINDOW_WIDTH / 2;
+            int bossY = 100; // 在屏幕上方固定位置
+
+            BossEnemy boss = (BossEnemy) factory.createAircraft(
+                    bossX,                   // 在屏幕中央出现
+                    bossY,                   // 在屏幕上方固定位置
+                    3,                       // 水平移动速度
+                    0,                       // 垂直速度为0（悬浮）
+                    150                      // Boss生命值
+            );
+
+            enemyAircrafts.add(boss);
 
             bossSpawned = true;
             lastBossTime = currentTime;
-            System.out.println("Boss敌机出现！");
+
+            // 播放Boss音乐
+            if (soundEnabled) {
+                soundManager.playBossMusic(SOUND_BGM_BOSS);
+            }
         }
     }
 
@@ -323,7 +431,15 @@ public class Game extends JPanel {
             enemyBullets.addAll(enemyAircraft.shoot());
         }
         // 英雄射击
-        heroBullets.addAll(heroAircraft.shoot());
+        List<BaseBullet> heroBulletsShot = heroAircraft.shoot();
+        if (!heroBulletsShot.isEmpty()) {
+            heroBullets.addAll(heroBulletsShot);
+
+            // 播放英雄机子弹发射音效
+            if (soundEnabled) {
+                soundManager.playSound(SoundManager.BULLET_SHOOT, SOUND_BULLET_SHOOT);
+            }
+        }
     }
 
     private void bulletsMoveAction() {
@@ -365,6 +481,11 @@ public class Game extends JPanel {
                 // 英雄机损失一定生命值
                 heroAircraft.decreaseHp(bullet.getPower());
                 bullet.vanish();
+
+                // 播放子弹击中音效
+                if (soundEnabled && bullet.getPower() > 0) {
+                    soundManager.playSound(SoundManager.BULLET_HIT, SOUND_BULLET_HIT);
+                }
             }
         }
 
@@ -384,6 +505,12 @@ public class Game extends JPanel {
                     // 敌机损失一定生命值
                     enemyAircraft.decreaseHp(bullet.getPower());
                     bullet.vanish();
+
+                    // 播放子弹击中音效
+                    if (soundEnabled && bullet.getPower() > 0) {
+                        soundManager.playSound(SoundManager.BULLET_HIT, SOUND_BULLET_HIT);
+                    }
+
                     if (enemyAircraft.notValid()) {
                         // 获得分数，产生道具补给
                         props.addAll(enemyAircraft.dropProps());
@@ -392,7 +519,10 @@ public class Game extends JPanel {
                         if (enemyAircraft instanceof BossEnemy) {
                             score += 500; // Boss给500分
                             bossSpawned = false; // Boss被击毁，重置标志
-                            System.out.println("Boss敌机被击毁！获得500分");
+
+                            // 停止Boss音乐，恢复普通背景音乐
+                            soundManager.resumeBackgroundMusic(SOUND_BGM);
+
                         } else if (enemyAircraft instanceof SuperEliteEnemy) {
                             score += 100; // 超级精英给100分
                         } else if (enemyAircraft instanceof EliteEnemy) {
@@ -406,6 +536,11 @@ public class Game extends JPanel {
                 if (enemyAircraft.crash(heroAircraft) || heroAircraft.crash(enemyAircraft)) {
                     enemyAircraft.vanish();
                     heroAircraft.decreaseHp(Integer.MAX_VALUE);
+
+                    // 播放爆炸音效
+                    if (soundEnabled) {
+                        soundManager.playSound(SoundManager.BOMB_EXPLOSION, SOUND_BOMB_EXPLOSION);
+                    }
                 }
             }
         }
@@ -419,6 +554,11 @@ public class Game extends JPanel {
                 // 英雄机撞击到道具
                 prop.effect(heroAircraft);
                 prop.vanish();
+
+                // 播放获得道具音效
+                if (soundEnabled) {
+                    soundManager.playSound(SoundManager.GET_SUPPLY, SOUND_GET_SUPPLY);
+                }
             }
         }
     }
@@ -451,9 +591,10 @@ public class Game extends JPanel {
     public void paint(Graphics g) {
         super.paint(g);
 
-        // 绘制背景,图片滚动
-        g.drawImage(ImageManager.BACKGROUND_IMAGE, 0, this.backGroundTop - Main.WINDOW_HEIGHT, null);
-        g.drawImage(ImageManager.BACKGROUND_IMAGE, 0, this.backGroundTop, null);
+        // 绘制背景,图片滚动 - 使用动态背景
+        BufferedImage currentBackground = ImageManager.getCurrentBackground();
+        g.drawImage(currentBackground, 0, this.backGroundTop - Main.WINDOW_HEIGHT, null);
+        g.drawImage(currentBackground, 0, this.backGroundTop, null);
         this.backGroundTop += 1;
         if (this.backGroundTop == Main.WINDOW_HEIGHT) {
             this.backGroundTop = 0;
@@ -536,5 +677,31 @@ public class Game extends JPanel {
 
         // 绘制最终分数
         g.drawString(scoreText, scoreX, scoreY);
+    }
+
+    /**
+     * 设置游戏难度
+     */
+    public void setGameDifficulty(int difficulty) {
+        this.gameDifficulty = difficulty;
+    }
+
+    /**
+     * 设置游戏结束回调
+     */
+    public void setGameOverCallback(GameOverCallback callback) {
+        this.gameOverCallback = callback;
+    }
+
+    /**
+     * 游戏结束时的清理工作
+     */
+    public void cleanup() {
+        // 停止所有音效
+        soundManager.stopAllSounds();
+        // 清理英雄机的线程
+        if (heroAircraft != null) {
+            heroAircraft.cleanup();
+        }
     }
 }

@@ -24,7 +24,16 @@ public class ScoreDaoImpl implements ScoreDao {
     public List<Score> getAllScores() {
         // 返回排序后的列表（按得分降序）
         List<Score> sortedScores = new ArrayList<>(scores);
-        Collections.sort(sortedScores);
+
+        // 使用自定义比较器按分数降序排列
+        Collections.sort(sortedScores, new Comparator<Score>() {
+            @Override
+            public int compare(Score s1, Score s2) {
+                // 按分数降序排列（分数高的排在前面）
+                return Integer.compare(s2.getScore(), s1.getScore());
+            }
+        });
+
         return sortedScores;
     }
 
@@ -57,8 +66,10 @@ public class ScoreDaoImpl implements ScoreDao {
             for (Score score : scores) {
                 writer.println(score.getPlayerName() + "," +
                         score.getScore() + "," +
+                        score.getDifficulty() + "," +  // 新增难度字段
                         sdf.format(score.getRecordTime()));
             }
+            System.out.println("成功保存 " + scores.size() + " 条记录到文件");
         } catch (IOException e) {
             System.err.println("保存得分记录失败: " + e.getMessage());
         }
@@ -67,6 +78,7 @@ public class ScoreDaoImpl implements ScoreDao {
     @Override
     public void loadFromFile() {
         if (!dataFile.exists()) {
+            System.out.println("得分记录文件不存在，将创建新文件");
             return;
         }
 
@@ -74,18 +86,33 @@ public class ScoreDaoImpl implements ScoreDao {
             scores.clear();
             String line;
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            int loadedCount = 0;
 
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",");
-                if (parts.length == 3) {
+                if (parts.length >= 3) {
                     String playerName = parts[0];
                     int score = Integer.parseInt(parts[1]);
-                    Date recordTime = sdf.parse(parts[2]);
-                    scores.add(new Score(playerName, score, recordTime));
+                    Date recordTime;
+
+                    // 处理旧格式（3个字段）和新格式（4个字段）的兼容
+                    if (parts.length == 3) {
+                        // 旧格式：playerName,score,recordTime
+                        recordTime = sdf.parse(parts[2]);
+                        scores.add(new Score(playerName, score, 0, recordTime)); // 默认简单难度
+                    } else {
+                        // 新格式：playerName,score,difficulty,recordTime
+                        int difficulty = Integer.parseInt(parts[2]);
+                        recordTime = sdf.parse(parts[3]);
+                        scores.add(new Score(playerName, score, difficulty, recordTime));
+                    }
+                    loadedCount++;
                 }
             }
-        } catch (IOException | ParseException e) {
+            System.out.println("从文件加载了 " + loadedCount + " 条得分记录");
+        } catch (IOException | ParseException | NumberFormatException e) {
             System.err.println("加载得分记录失败: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
