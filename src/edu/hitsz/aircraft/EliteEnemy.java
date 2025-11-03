@@ -1,16 +1,17 @@
-// EliteEnemy.java
 package edu.hitsz.aircraft;
 
 import edu.hitsz.application.Main;
 import edu.hitsz.bullet.BaseBullet;
 import edu.hitsz.bullet.EnemyBullet;
+import edu.hitsz.observer.BombObserver;
+import edu.hitsz.observer.BombExplosionEvent;
 import edu.hitsz.prop.*;
 import edu.hitsz.factory.*;
 import edu.hitsz.strategy.StraightShootStrategy;
 import java.util.LinkedList;
 import java.util.List;
 
-public class EliteEnemy extends AbstractAircraft {
+public class EliteEnemy extends AbstractAircraft implements BombObserver {
     private int direction = 1;
     private int shootNum = 1;
     private int power = 30;
@@ -50,16 +51,17 @@ public class EliteEnemy extends AbstractAircraft {
         List<AbstractProp> props = new LinkedList<>();
         double r = Math.random();
 
-        // EliteEnemy的原有掉落逻辑：30%炸弹，30%加血，30%火力，10%无道具
-        // 现在将部分火力道具改为超级火力道具
+        PropFactory propFactory = null;
+
         if(r < 0.25){
+            // 需要传递Game引用给炸弹道具工厂
             propFactory = new BombPropFactory();
         } else if (r < 0.5) {
             propFactory = new BloodPropFactory();
         } else if (r < 0.7) {
-            propFactory = new BulletPropFactory(); // 普通火力道具
+            propFactory = new BulletPropFactory();
         } else if (r < 0.9) {
-            propFactory = new SuperBulletPropFactory(); // 超级火力道具
+            propFactory = new SuperBulletPropFactory();
         } else {
             propFactory = null;
         }
@@ -71,4 +73,23 @@ public class EliteEnemy extends AbstractAircraft {
 
         return props;
     }
+
+
+    /**
+     * 炸弹爆炸事件处理 - 精英敌机消失
+     */
+    @Override
+    public void onBombExplode(BombExplosionEvent event) {
+        if (this.notValid()) {
+            return;
+        }
+        // 检查是否在爆炸范围内
+        if (event.isInRange(this.getLocationX(), this.getLocationY())) {
+            // 普通敌机直接被清除
+            this.vanish();
+        }
+    }
+
+
+
 }

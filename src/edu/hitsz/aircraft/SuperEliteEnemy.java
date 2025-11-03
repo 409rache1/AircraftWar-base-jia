@@ -1,15 +1,16 @@
-// SuperEliteEnemy.java
 package edu.hitsz.aircraft;
 
 import edu.hitsz.bullet.BaseBullet;
 import edu.hitsz.bullet.EnemyBullet;
+import edu.hitsz.observer.BombObserver;
+import edu.hitsz.observer.BombExplosionEvent;
 import edu.hitsz.factory.*;
 import edu.hitsz.prop.AbstractProp;
 import edu.hitsz.strategy.ScatteredShootStrategy;
 import java.util.LinkedList;
 import java.util.List;
 
-public class SuperEliteEnemy extends AbstractAircraft {
+public class SuperEliteEnemy extends AbstractAircraft implements BombObserver {
     private int power = 30;
     private int shootNum = 3;
     private int direction = 1;
@@ -49,16 +50,17 @@ public class SuperEliteEnemy extends AbstractAircraft {
         List<AbstractProp> props = new LinkedList<>();
         double r = Math.random();
 
-        // SuperEliteEnemy的原有掉落逻辑：30%炸弹，30%加血，30%火力，10%无道具
-        // 提高超级火力道具的掉落概率
-        if(r < 0.2){
+        PropFactory propFactory = null;
+
+        if(r < 0.25){
+            // 需要传递Game引用给炸弹道具工厂
             propFactory = new BombPropFactory();
-        } else if (r < 0.4) {
+        } else if (r < 0.5) {
             propFactory = new BloodPropFactory();
-        } else if (r < 0.6) {
-            propFactory = new BulletPropFactory(); // 普通火力道具
-        } else if (r < 0.95) {
-            propFactory = new SuperBulletPropFactory(); // 超级火力道具（较高概率）
+        } else if (r < 0.7) {
+            propFactory = new BulletPropFactory();
+        } else if (r < 0.9) {
+            propFactory = new SuperBulletPropFactory();
         } else {
             propFactory = null;
         }
@@ -69,5 +71,27 @@ public class SuperEliteEnemy extends AbstractAircraft {
         }
 
         return props;
+    }
+
+    /**
+     * 炸弹爆炸事件处理 - 超级精英敌机血量减少
+     */
+    @Override
+    public void onBombExplode(BombExplosionEvent event) {
+        if (this.notValid()) {
+            return;
+        }
+
+        // 检查是否在爆炸范围内
+        if (event.isInRange(this.getLocationX(), this.getLocationY())) {
+            // 超级精英敌机血量减少（但不立即消失）
+            int damage = this.getHp() / 3; // 减少三分之一血量
+            this.decreaseHp(damage);
+
+            // 如果血量降至0以下，则消失
+            if (this.getHp() <= 0) {
+                this.vanish();
+            }
+        }
     }
 }

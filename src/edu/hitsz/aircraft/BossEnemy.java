@@ -1,4 +1,3 @@
-// BossEnemy.java
 package edu.hitsz.aircraft;
 
 import edu.hitsz.application.ImageManager;
@@ -6,13 +5,15 @@ import edu.hitsz.application.Main;
 import edu.hitsz.bullet.BaseBullet;
 import edu.hitsz.bullet.EnemyBullet;
 import edu.hitsz.factory.*;
+import edu.hitsz.observer.BombObserver;
+import edu.hitsz.observer.BombExplosionEvent;
 import edu.hitsz.prop.AbstractProp;
 import edu.hitsz.strategy.CircularShootStrategy;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 
-public class BossEnemy extends AbstractAircraft {
+public class BossEnemy extends AbstractAircraft implements BombObserver {
     private int power = 30;
     private int shootNum = 20;
     private int direction = 1;
@@ -131,6 +132,14 @@ public class BossEnemy extends AbstractAircraft {
     public int getWidth() {
         // 这里需要根据实际图像返回宽度
         // 如果使用ImageManager，可以这样获取：
-         return ImageManager.BOSS_ENEMY_IMAGE.getWidth();
+        return ImageManager.BOSS_ENEMY_IMAGE.getWidth();
+    }
+
+    /**
+     * 炸弹爆炸事件处理 - Boss敌机免疫炸弹效果
+     */
+    @Override
+    public void onBombExplode(BombExplosionEvent event) {
+        // Boss敌机不受炸弹影响
     }
 }

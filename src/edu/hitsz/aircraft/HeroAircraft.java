@@ -88,7 +88,6 @@ public class HeroAircraft extends AbstractAircraft {
      * 重置英雄机状态到指定值
      */
     public void reset(int locationX, int locationY, int hp) {
-        System.out.println("重置英雄机状态到指定值");
         this.locationX = locationX;
         this.locationY = locationY;
         this.hp = hp;

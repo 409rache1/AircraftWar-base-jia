@@ -46,7 +46,7 @@ public class GameSettings {
         mediumButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                selectedDifficulty = "中等";
+                selectedDifficulty = "普通";
                 startGame();
             }
         });
@@ -105,7 +105,7 @@ public class GameSettings {
 
         // 美化按钮 - 增大按钮尺寸
         styleButton(easyButton, "简单", new Color(76, 175, 80));   // 绿色
-        styleButton(mediumButton, "中等", new Color(33, 150, 243)); // 蓝色
+        styleButton(mediumButton, "普通", new Color(33, 150, 243)); // 蓝色
         styleButton(hardButton, "困难", new Color(244, 67, 54));    // 红色
 
         // 创建音效设置面板 - 缩小这个面板
@@ -243,7 +243,8 @@ public class GameSettings {
 
         // 设置游戏难度
         int difficulty = Main.getDifficultyLevel(selectedDifficulty);
-        game.setGameDifficulty(difficulty);
+        System.out.println("设置游戏难度: " + selectedDifficulty + " (级别: " + difficulty + ")");
+        game.setGameDifficulty(difficulty);  // 确保调用这个
 
         // 设置背景图片（根据难度）
         ImageManager.setBackgroundByDifficulty(difficulty);

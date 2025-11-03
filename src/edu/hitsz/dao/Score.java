@@ -1,8 +1,11 @@
 package edu.hitsz.dao;
 
+import java.io.Serializable;
 import java.util.Date;
 
-public class Score {
+public class Score implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String playerName;
     private int score;
     private int difficulty; // 0-简单, 1-中等, 2-困难
@@ -16,15 +19,21 @@ public class Score {
     }
 
     // Getters and Setters
-    public String getPlayerName() { return playerName; }
-    public int getScore() { return score; }
-    public int getDifficulty() { return difficulty; }
-    public Date getRecordTime() { return recordTime; }
+    public String getPlayerName() {
+        return playerName;
+    }
 
-    public void setPlayerName(String playerName) { this.playerName = playerName; }
-    public void setScore(int score) { this.score = score; }
-    public void setDifficulty(int difficulty) { this.difficulty = difficulty; }
-    public void setRecordTime(Date recordTime) { this.recordTime = recordTime; }
+    public int getScore() {
+        return score;
+    }
+
+    public int getDifficulty() {
+        return difficulty;
+    }
+
+    public Date getRecordTime() {
+        return recordTime;
+    }
 
     @Override
     public String toString() {

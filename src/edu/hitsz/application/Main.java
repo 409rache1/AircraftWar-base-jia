@@ -58,7 +58,7 @@ public class Main {
     public static int getDifficultyLevel(String difficulty) {
         switch (difficulty) {
             case "简单": return 0;
-            case "中等": return 1;
+            case "普通": return 1;
             case "困难": return 2;
             default: return 0;
         }

@@ -1,0 +1,133 @@
+@startuml
+
+skinparam class {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+}
+
+title 飞机大战游戏难度设置的模板模式
+
+abstract class GameDifficultyTemplate {
+    - enemyMaxCount: int
+    - mobEnemyHp: int
+    - eliteEnemyHp: int
+    - superEliteEnemyHp: int
+    - heroShootCycle: int
+    - enemyShootCycle: int
+    - eliteEnemyProb: double
+    - superEliteEnemyProb: double
+    - bossScoreThreshold: int
+    - bossHp: int
+    - cycleDuration: int
+
+    + {abstract} getDifficultyName(): String
+    + setupDifficulty(): void
+    # {abstract} setEnemyMaxCount(): void
+    # {abstract} setEnemyAttributes(): void
+    # {abstract} setShootingCycle(): void
+    # {abstract} setEliteEnemySettings(): void
+    # {abstract} setBossEnemySettings(): void
+    # {abstract} setDifficultyIncrease(): void
+    + {abstract} increaseDifficulty(gameTime: int): void
+    # commonSetup(): void
+    + hasBossEnemy(): boolean
+    + canIncreaseDifficulty(): boolean
+    + getEnemyMaxCount(): int
+    + getMobEnemyHp(): int
+    + getEliteEnemyHp(): int
+    + getSuperEliteEnemyHp(): int
+    + getHeroShootCycle(): int
+    + getEnemyShootCycle(): int
+    + getEliteEnemyProb(): double
+    + getSuperEliteEnemyProb(): double
+    + getBossScoreThreshold(): int
+    + getBossHp(): int
+    + getCycleDuration(): int
+}
+
+note top of GameDifficultyTemplate
+  模板方法：
+  setupDifficulty() {
+    setEnemyMaxCount();
+    setEnemyAttributes();
+    setShootingCycle();
+    setEliteEnemySettings();
+    setBossEnemySettings();
+    setDifficultyIncrease();
+    commonSetup();
+  }
+end note
+
+class EasyDifficulty {
+    - difficultyIncreaseInterval: int = 0
+    - lastDifficultyIncreaseTime: int = 0
+
+    + getDifficultyName(): String
+    + setEnemyMaxCount(): void
+    + setEnemyAttributes(): void
+    + setShootingCycle(): void
+    + setEliteEnemySettings(): void
+    + setBossEnemySettings(): void
+    + setDifficultyIncrease(): void
+    + increaseDifficulty(gameTime: int): void
+    + hasBossEnemy(): boolean
+    + canIncreaseDifficulty(): boolean
+}
+
+class NormalDifficulty {
+    - difficultyIncreaseInterval: int = 30
+    - lastDifficultyIncreaseTime: int = 0
+
+    + getDifficultyName(): String
+    + setEnemyMaxCount(): void
+    + setEnemyAttributes(): void
+    + setShootingCycle(): void
+    + setEliteEnemySettings(): void
+    + setBossEnemySettings(): void
+    + setDifficultyIncrease(): void
+    + increaseDifficulty(gameTime: int): void
+}
+
+class HardDifficulty {
+    - difficultyIncreaseInterval: int = 20
+    - lastDifficultyIncreaseTime: int = 0
+    - bossSpawnCount: int = 0
+    - bossHpIncrease: int = 50
+
+    + getDifficultyName(): String
+    + setEnemyMaxCount(): void
+    + setEnemyAttributes(): void
+    + setShootingCycle(): void
+    + setEliteEnemySettings(): void
+    + setBossEnemySettings(): void
+    + setDifficultyIncrease(): void
+    + increaseDifficulty(gameTime: int): void
+    + incrementBossSpawnCount(): void
+    + getBossHp(): int
+}
+
+GameDifficultyTemplate <|-- EasyDifficulty
+GameDifficultyTemplate <|-- NormalDifficulty
+GameDifficultyTemplate <|-- HardDifficulty
+
+class Game {
+    - currentDifficulty: GameDifficultyTemplate
+    - gameTimeInSeconds: int
+    - lastDifficultyCheckTime: int
+
+    + setGameDifficulty(difficultyLevel: int): void
+    - applyDifficultySettings(): void
+    - checkAndIncreaseDifficulty(): void
+    - enemyGenerateAction(): void
+}
+
+Game --> GameDifficultyTemplate : 使用
+
+note right of Game
+  在游戏主类中使用：
+  currentDifficulty.setupDifficulty()
+  currentDifficulty.increaseDifficulty(gameTime)
+end note
+
+@enduml

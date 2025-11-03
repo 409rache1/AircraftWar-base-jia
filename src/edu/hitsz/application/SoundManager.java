@@ -55,12 +55,6 @@ public class SoundManager {
     private boolean checkAudioFile(String filePath) {
         File file = new File(filePath);
         boolean exists = file.exists();
-//        if (exists) {
-//            //System.out.println("找到音频文件: " + file.getAbsolutePath());
-//        } else {
-//            //System.err.println("未找到音频文件: " + filePath);
-//            //System.err.println("尝试的路径: " + file.getAbsolutePath());
-//        }
         return exists;
     }
 

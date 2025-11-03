@@ -1,4 +1,4 @@
-// ScatteredShootStrategy.java - 完整修正版本
+// ScatteredShootStrategy.java
 package edu.hitsz.strategy;
 
 import edu.hitsz.aircraft.AbstractAircraft;

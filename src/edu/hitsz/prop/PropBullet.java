@@ -10,7 +10,6 @@ public class PropBullet extends AbstractProp {
 
     @Override
     public void effect(AbstractAircraft aircraft) {
-        System.out.println("FireSupply active!");
 
         // 检查是否是英雄机
         if (aircraft instanceof HeroAircraft) {

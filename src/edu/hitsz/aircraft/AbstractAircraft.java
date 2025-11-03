@@ -1,4 +1,3 @@
-// AbstractAircraft.java (在原有基础上添加)
 package edu.hitsz.aircraft;
 
 import edu.hitsz.bullet.BaseBullet;

@@ -7,6 +7,8 @@ import edu.hitsz.prop.*;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import edu.hitsz.factory.*;
 import edu.hitsz.dao.RankingManager;
+import edu.hitsz.observer.*;
+import edu.hitsz.difficulty.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -18,7 +20,7 @@ import java.util.concurrent.*;
 /**
  * 游戏主面板，游戏启动
  */
-public class Game extends JPanel {
+public class Game extends JPanel implements ScoreObserver {
 
     private int backGroundTop = 0;
 
@@ -26,6 +28,15 @@ public class Game extends JPanel {
      * Scheduled 线程池，用于任务调度
      */
     private final ScheduledExecutorService executorService;
+
+    private BombObserverManager bombObserverManager = BombObserverManager.getInstance();
+
+    /**
+     * 难度相关设置
+     */
+    private GameDifficultyTemplate currentDifficulty;
+    private int gameTimeInSeconds = 0;
+    private int lastDifficultyCheckTime = 0;
 
     /**
      * 时间间隔(ms)，控制刷新频率
@@ -142,6 +153,13 @@ public class Game extends JPanel {
         this.executorService = new ScheduledThreadPoolExecutor(1,
                 new BasicThreadFactory.Builder().namingPattern("game-action-%d").daemon(true).build());
 
+        //设置默认难度
+        this.currentDifficulty = new EasyDifficulty();
+        applyDifficultySettings();
+
+        // 注册为分数观察者
+        ScoreSubject.getInstance().registerObserver(this);
+
         //启动英雄机鼠标监听
         new HeroController(this, heroAircraft);
     }
@@ -170,6 +188,12 @@ public class Game extends JPanel {
         // 重置敌机工厂等
         factory = null;
 
+        // 重置时间相关变量
+        gameTimeInSeconds = 0;
+        lastDifficultyCheckTime = 0;
+
+        // 重新应用难度设置
+        applyDifficultySettings();
     }
 
     /**
@@ -273,9 +297,7 @@ public class Game extends JPanel {
 
                 // 强制重绘界面以显示游戏结束信息
                 repaint();
-
             }
-
         };
 
         /**
@@ -283,6 +305,114 @@ public class Game extends JPanel {
          * 本次任务执行完成后，需要延迟设定的延迟时间，才会执行新的任务
          */
         executorService.scheduleWithFixedDelay(task, timeInterval, timeInterval, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * 设置游戏难度
+     */
+    public void setGameDifficulty(int difficultyLevel) {
+        // 先设置难度级别
+        this.gameDifficulty = difficultyLevel;
+
+        // 然后根据难度级别设置具体的难度对象
+        switch (difficultyLevel) {
+            case 0:
+                this.currentDifficulty = new EasyDifficulty();
+                break;
+            case 1:
+                this.currentDifficulty = new NormalDifficulty();
+                break;
+            case 2:
+                this.currentDifficulty = new HardDifficulty();
+                break;
+            default:
+                this.currentDifficulty = new EasyDifficulty();
+                this.gameDifficulty = 0;
+        }
+
+        // 应用难度设置
+        applyDifficultySettings();
+        System.out.println("已设置难度: " + currentDifficulty.getDifficultyName());
+    }
+
+    /**
+     * 应用难度设置
+     */
+    private void applyDifficultySettings() {
+        if (currentDifficulty == null) {
+            return;
+        }
+
+        // 调用模板方法设置难度
+        currentDifficulty.setupDifficulty();
+
+        // 应用难度参数到游戏设置
+        this.enemyMaxNumber = currentDifficulty.getEnemyMaxCount();
+        this.cycleDuration = currentDifficulty.getCycleDuration();
+        this.bossScoreThreshold = currentDifficulty.getBossScoreThreshold();
+    }
+
+    /**
+     * 检查并增加难度
+     */
+    private void checkAndIncreaseDifficulty() {
+        // 计算游戏时间（秒）
+        gameTimeInSeconds = time / 1000;
+
+        // 定期检查难度增加
+        if (gameTimeInSeconds - lastDifficultyCheckTime >= 1) { // 每秒检查一次
+            lastDifficultyCheckTime = gameTimeInSeconds;
+
+            // 调用难度增加逻辑
+            currentDifficulty.increaseDifficulty(gameTimeInSeconds);
+        }
+    }
+
+    /**
+     * 获取当前敌机血量（根据难度）
+     */
+    private int getMobEnemyHp() {
+        return currentDifficulty != null ? currentDifficulty.getMobEnemyHp() : 20;
+    }
+
+    private int getEliteEnemyHp() {
+        return currentDifficulty != null ? currentDifficulty.getEliteEnemyHp() : 40;
+    }
+
+    private int getSuperEliteEnemyHp() {
+        return currentDifficulty != null ? currentDifficulty.getSuperEliteEnemyHp() : 60;
+    }
+
+    /**
+     * 获取敌机生成概率（根据难度）
+     */
+    private double getEliteEnemyProb() {
+        return currentDifficulty != null ? currentDifficulty.getEliteEnemyProb() : 0.2;
+    }
+
+    private double getSuperEliteEnemyProb() {
+        return currentDifficulty != null ? currentDifficulty.getSuperEliteEnemyProb() : 0.1;
+    }
+
+    /**
+     * 获取Boss敌机血量（根据难度和召唤次数）
+     */
+    private int getBossHp() {
+        if (currentDifficulty instanceof HardDifficulty) {
+            return ((HardDifficulty) currentDifficulty).getBossHp();
+        }
+        return currentDifficulty != null ? currentDifficulty.getBossHp() : 150;
+    }
+
+    /**
+     * 分数观察者接口实现
+     * 当有分数事件发生时被调用
+     */
+    @Override
+    public void onScoreAdded(ScoreEvent event) {
+        this.score += event.getPoints();
+        System.out.println("添加分数: " + event.getPoints() + " - " + event.getReason());
+        System.out.println("当前总分: " + this.score);
     }
 
     /**
@@ -294,7 +424,6 @@ public class Game extends JPanel {
             heroAircraft.cleanup();
         }
 
-
         // 播放游戏结束音效
         if (soundEnabled) {
             soundManager.playSound(SoundManager.GAME_OVER, SOUND_GAME_OVER);
@@ -302,7 +431,7 @@ public class Game extends JPanel {
             soundManager.stopBossMusic();
         }
 
-        // 注意：这里先不保存记录，等玩家在ScoreBoard中输入名字后再保存
+        // 等玩家在ScoreBoard中输入名字后再保存
         // 实际的保存将在 ScoreBoard 中完成
 
         // 打印排行榜
@@ -335,13 +464,25 @@ public class Game extends JPanel {
                         JOptionPane.INFORMATION_MESSAGE);
             }
         });
-
     }
 
-    //***********************
-    //      Action 各部分
-    //***********************
+    /**
+     * 获取敌机列表 - 用于观察者模式
+     */
+    public List<AbstractAircraft> getEnemyAircrafts() {
+        return new LinkedList<>(enemyAircrafts); // 返回副本以避免并发修改
+    }
 
+    /**
+     * 获取敌机子弹列表 - 用于观察者模式
+     */
+    public List<BaseBullet> getEnemyBullets() {
+        return new LinkedList<>(enemyBullets); // 返回副本以避免并发修改
+    }
+
+    /**
+     * Action各部分
+     */
     private boolean timeCountAndNewCycleJudge() {
         cycleTime += timeInterval;
         if (cycleTime >= cycleDuration) {
@@ -358,69 +499,91 @@ public class Game extends JPanel {
      * 包括普通敌机、精英敌机、超级精英敌机和Boss敌机
      */
     private void enemyGenerateAction() {
+        // 检查并增加难度
+        checkAndIncreaseDifficulty();
+
         // 普通敌机和精英敌机生成（受数量限制）
         if (enemyAircrafts.size() < enemyMaxNumber) {
             double rand = Math.random();
+            double eliteProb = getEliteEnemyProb();
+            double superEliteProb = getSuperEliteEnemyProb();
 
-            if (rand < 0.1) {
-                // 10% 概率生成超级精英敌机
+            AbstractAircraft newEnemy = null;
+
+            if (rand < superEliteProb) {
+                // 生成超级精英敌机
                 factory = new SuperEliteEnemyFactory();
-                enemyAircrafts.add(factory.createAircraft(
+                newEnemy = factory.createAircraft(
                         (int) (Math.random() * (Main.WINDOW_WIDTH - ImageManager.MOB_ENEMY_IMAGE.getWidth())),
                         (int) (Math.random() * Main.WINDOW_HEIGHT * 0.05),
                         (int) (Math.random() * 5 - 2),  // 随机水平速度 -2 到 2
                         5, // speedY
-                        90 // hp - 超级精英敌机生命值更高
-                ));
-            } else if (rand < 0.3) {
-                // 20% 概率生成精英敌机
+                        getSuperEliteEnemyHp() // 使用难度相关的血量
+                );
+            } else if (rand < eliteProb + superEliteProb) {
+                // 生成精英敌机
                 factory = new EliteEnemyFactory();
-                enemyAircrafts.add(factory.createAircraft(
+                newEnemy = factory.createAircraft(
                         (int) (Math.random() * (Main.WINDOW_WIDTH - ImageManager.ELITE_ENEMY_IMAGE.getWidth())),
                         (int) (Math.random() * Main.WINDOW_HEIGHT * 0.05),
                         0,
                         5,
-                        60
-                ));
+                        getEliteEnemyHp() // 使用难度相关的血量
+                );
             } else {
-                // 70% 概率生成普通敌机
+                // 生成普通敌机
                 factory = new MobEnemyFactory();
-                enemyAircrafts.add(factory.createAircraft(
+                newEnemy = factory.createAircraft(
                         (int) (Math.random() * (Main.WINDOW_WIDTH - ImageManager.MOB_ENEMY_IMAGE.getWidth())),
                         (int) (Math.random() * Main.WINDOW_HEIGHT * 0.05),
                         0,
                         5,
-                        30
-                ));
+                        getMobEnemyHp() // 使用难度相关的血量
+                );
+            }
+
+            if (newEnemy != null) {
+                enemyAircrafts.add(newEnemy);
+                // 注册为炸弹观察者
+                bombObserverManager.registerAircraft(newEnemy);
             }
         }
 
         // Boss敌机生成逻辑（独立于敌机数量限制）
-        long currentTime = System.currentTimeMillis();
-        if (score >= bossScoreThreshold && !bossSpawned &&
-                (currentTime - lastBossTime) > BOSS_COOLDOWN) {
-            factory = new BossEnemyFactory();
+        if (currentDifficulty.hasBossEnemy()) {
+            long currentTime = System.currentTimeMillis();
+            if (score >= bossScoreThreshold && !bossSpawned &&
+                    (currentTime - lastBossTime) > BOSS_COOLDOWN) {
+                factory = new BossEnemyFactory();
 
-            // 在屏幕中央生成Boss敌机
-            int bossX = Main.WINDOW_WIDTH / 2;
-            int bossY = 100; // 在屏幕上方固定位置
+                // 在屏幕中央生成Boss敌机
+                int bossX = Main.WINDOW_WIDTH / 2;
+                int bossY = 100; // 在屏幕上方固定位置
 
-            BossEnemy boss = (BossEnemy) factory.createAircraft(
-                    bossX,                   // 在屏幕中央出现
-                    bossY,                   // 在屏幕上方固定位置
-                    3,                       // 水平移动速度
-                    0,                       // 垂直速度为0（悬浮）
-                    150                      // Boss生命值
-            );
+                BossEnemy boss = (BossEnemy) factory.createAircraft(
+                        bossX,                   // 在屏幕中央出现
+                        bossY,                   // 在屏幕上方固定位置
+                        3,                       // 水平移动速度
+                        0,                       // 垂直速度为0（悬浮）
+                        getBossHp()              // 使用难度相关的血量
+                );
 
-            enemyAircrafts.add(boss);
+                enemyAircrafts.add(boss);
+                // 注册Boss为炸弹观察者
+                bombObserverManager.registerAircraft(boss);
 
-            bossSpawned = true;
-            lastBossTime = currentTime;
+                bossSpawned = true;
+                lastBossTime = currentTime;
 
-            // 播放Boss音乐
-            if (soundEnabled) {
-                soundManager.playBossMusic(SOUND_BGM_BOSS);
+                // 如果是困难模式，增加Boss召唤计数
+                if (currentDifficulty instanceof HardDifficulty) {
+                    ((HardDifficulty) currentDifficulty).incrementBossSpawnCount();
+                }
+
+                // 播放Boss音乐
+                if (soundEnabled) {
+                    soundManager.playBossMusic(SOUND_BGM_BOSS);
+                }
             }
         }
     }
@@ -428,8 +591,18 @@ public class Game extends JPanel {
     private void shootAction() {
         // 敌机射击
         for (AbstractAircraft enemyAircraft : enemyAircrafts) {
-            enemyBullets.addAll(enemyAircraft.shoot());
+            List<BaseBullet> newBullets = enemyAircraft.shoot();
+            if (!newBullets.isEmpty()) {
+                enemyBullets.addAll(newBullets);
+                // 注册新子弹为炸弹观察者
+                for (BaseBullet bullet : newBullets) {
+                    if (bullet instanceof BombObserver) {
+                        BombSubject.getInstance().registerObserver((BombObserver) bullet);
+                    }
+                }
+            }
         }
+
         // 英雄射击
         List<BaseBullet> heroBulletsShot = heroAircraft.shoot();
         if (!heroBulletsShot.isEmpty()) {
@@ -462,7 +635,6 @@ public class Game extends JPanel {
             prop.forward();
         }
     }
-
 
     /**
      * 碰撞检测：
@@ -556,7 +728,7 @@ public class Game extends JPanel {
                 prop.vanish();
 
                 // 播放获得道具音效
-                if (soundEnabled) {
+                if (soundEnabled && !(prop instanceof PropBomb)) {
                     soundManager.playSound(SoundManager.GET_SUPPLY, SOUND_GET_SUPPLY);
                 }
             }
@@ -680,13 +852,6 @@ public class Game extends JPanel {
     }
 
     /**
-     * 设置游戏难度
-     */
-    public void setGameDifficulty(int difficulty) {
-        this.gameDifficulty = difficulty;
-    }
-
-    /**
      * 设置游戏结束回调
      */
     public void setGameOverCallback(GameOverCallback callback) {
@@ -703,5 +868,7 @@ public class Game extends JPanel {
         if (heroAircraft != null) {
             heroAircraft.cleanup();
         }
+        // 移除分数观察者
+        ScoreSubject.getInstance().removeObserver(this);
     }
 }
